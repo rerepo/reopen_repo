@@ -175,6 +175,7 @@ Gerrit Code Review:  http://code.google.com/p/gerrit/
       b = {}
       for branch in avail:
         if branch is None:
+          print("skipping branch is None", file=sys.stderr)
           continue
         name = branch.name
         date = branch.date
