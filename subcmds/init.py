@@ -131,6 +131,9 @@ to update the working directory files.
                  help='restrict manifest projects to ones with a specified '
                       'platform group [auto|all|none|linux|darwin|...]',
                  metavar='PLATFORM')
+    g.add_option('-l', '--local-only',
+                 dest='local_only', action='store_true',
+                 help="only update working tree, don't fetch")
     g.add_option('--no-clone-bundle',
                  dest='no_clone_bundle', action='store_true',
                  help='disable use of /clone.bundle on HTTP/HTTPS')
@@ -253,7 +256,7 @@ to update the working directory files.
     if opt.submodules:
       m.config.SetString('repo.submodules', 'true')
 
-    if not m.Sync_NetworkHalf(is_new=is_new, quiet=opt.quiet,
+    if not opt.local_only and not m.Sync_NetworkHalf(is_new=is_new, quiet=opt.quiet,
         clone_bundle=not opt.no_clone_bundle,
         current_branch_only=opt.current_branch_only,
         no_tags=opt.no_tags, submodules=opt.submodules):
