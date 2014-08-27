@@ -129,6 +129,7 @@ class Command(object):
   def GetProjects(self, args, missing_ok=False, submodules_ok=False):
     """A list of projects that match the arguments.
     """
+    # NOTE: manifest.projects is @property
     all_projects_list = self.manifest.projects
     result = []
 
@@ -153,6 +154,7 @@ class Command(object):
     else:
       self._ResetPathToProjectMap(all_projects_list)
 
+      # NOTE: for GetProjectsWithName()
       for arg in args:
         projects = self.manifest.GetProjectsWithName(arg)
 

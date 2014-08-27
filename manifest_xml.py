@@ -110,6 +110,7 @@ class XmlManifest(object):
     self.repodir = os.path.abspath(repodir)
     self.topdir = os.path.dirname(self.repodir)
     self.manifestFile = os.path.join(self.repodir, MANIFEST_FILE_NAME)
+    # NOTE: GitConfig.ForUser() define in git_config.py
     self.globalConfig = GitConfig.ForUser()
     self.localManifestWarning = False
 
@@ -146,6 +147,7 @@ class XmlManifest(object):
     try:
       if os.path.lexists(self.manifestFile):
         os.remove(self.manifestFile)
+      # NOTE: create symlink 'manifest.xml' to dir manifests/*.xml
       os.symlink('manifests/%s' % name, self.manifestFile)
     except OSError as e:
       raise ManifestParseError('cannot link manifest %s: %s' % (name, str(e)))
@@ -374,10 +376,12 @@ class XmlManifest(object):
         b = b[len(R_HEADS):]
       self.branch = b
 
+      # NOTE: call _ParseManifestXml() to get xml projects
       nodes = []
       nodes.append(self._ParseManifestXml(self.manifestFile,
                                           self.manifestProject.worktree))
 
+      # NOTE: in addition, parse 'local_manifest.xml'
       local = os.path.join(self.repodir, LOCAL_MANIFEST_NAME)
       if os.path.exists(local):
         if not self.localManifestWarning:

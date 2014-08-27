@@ -44,6 +44,12 @@ if not is_python3():
   input = raw_input
   # pylint:enable=W0622
 
+
+# for PRINT
+import inspect
+REPO_PRINT = True
+
+
 def _lwrite(path, content):
   lock = '%s.lock' % path
 
@@ -585,6 +591,7 @@ class Project(object):
     self.copyfiles = []
     self.linkfiles = []
     self.annotations = []
+    # NOTE: GitConfig.ForRepository() define in git_config.py
     self.config = GitConfig.ForRepository(
                     gitdir=self.gitdir,
                     defaults=self.manifest.globalConfig)
@@ -1064,6 +1071,8 @@ class Project(object):
     """Perform only the network IO portion of the sync process.
        Local working directory/branch state is not affected.
     """
+    if REPO_PRINT: print('PRINT: <%s:%s> call Sync_NetworkHalf is_new==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, is_new))
+
     if archive and not isinstance(self, MetaProject):
       if self.remote.url.startswith(('http://', 'https://')):
         print("error: %s: Cannot fetch archives from http/https "
@@ -1097,6 +1106,7 @@ class Project(object):
     if is_new is None:
       is_new = not self.Exists
     if is_new:
+      # NOTE: call _InitGitDir() in Sync_NetworkHalf()
       self._InitGitDir()
     else:
       self._UpdateHooks()
@@ -1129,6 +1139,7 @@ class Project(object):
       elif self.manifest.default.sync_c:
         current_branch_only = True
 
+    # NOTE: call _RemoteFetch() in Sync_NetworkHalf()
     has_sha1 = ID_RE.match(self.revisionExpr) and self._CheckForSha1()
     if (not has_sha1  #Need to fetch since we don't already have this revision
         and not self._RemoteFetch(initial=is_new, quiet=quiet, alt_dir=alt_dir,
@@ -1220,6 +1231,7 @@ class Project(object):
         syncbuf.fail(self, _PriorSyncFailedError())
         return
 
+      # NOTE: repo init -b HEAD ...
       if head == revid:
         # No changes; don't do anything further.
         # Except if the head needs to be detached
@@ -1231,6 +1243,7 @@ class Project(object):
         if lost:
           syncbuf.info(self, "discarding %d commits", len(lost))
 
+      # NOTE: call _Checkout() by git-checkout
       try:
         self._Checkout(revid, quiet=True)
       except GitError as e:
@@ -1246,6 +1259,7 @@ class Project(object):
 
     branch = self.GetBranch(branch)
 
+    # NOTE: when branch.LocalMerge == None
     if not branch.LocalMerge:
       # The current branch has no tracking configuration.
       # Jump off it to a detached HEAD.
@@ -1297,6 +1311,7 @@ class Project(object):
     if not upstream_gain and cnt_mine == len(local_changes):
       return
 
+    # NOTE: if project work dir exist modify
     if self.IsDirty(consider_untracked=False):
       syncbuf.fail(self, _DirtyError())
       return
@@ -1332,6 +1347,7 @@ class Project(object):
 
     if cnt_mine > 0 and self.rebase:
       def _dorebase():
+        # NOTE: magic git-rebase remote/branch indicate by manifest
         self._Rebase(upstream='%s^1' % last_mine, onto=revid)
         self._CopyAndLinkFiles()
       syncbuf.later2(self, _dorebase)
@@ -2300,6 +2316,7 @@ class Project(object):
       if GitCommand(self, cmd).Wait() != 0:
         raise GitError("cannot initialize work tree")
 
+      # NOTE: create repo link !!!
       self._CopyAndLinkFiles()
 
   def _gitdir_path(self, path):
@@ -2506,6 +2523,7 @@ class Project(object):
                        p.stderr))
       return r
 
+    # NOTE: do git init
     def __getattr__(self, name):
       """Allow arbitrary git commands using pythonic syntax.
 
@@ -2689,8 +2707,10 @@ class MetaProject(Project):
   def PreSync(self):
     if self.Exists:
       cb = self.CurrentBranch
+      if REPO_PRINT: print('PRINT: <%s:%s> self.CurrentBranch==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, cb))
       if cb:
         base = self.GetBranch(cb).merge
+        if REPO_PRINT: print('PRINT: <%s:%s> self.GetBranch(cb).merge==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, base))
         if base:
           self.revisionExpr = base
           self.revisionId = None
@@ -2735,6 +2755,7 @@ class MetaProject(Project):
       except KeyError:
         head = None
 
+    # NOTE: if remote == HEAD
     if revid == head:
       return False
     elif self._revlist(not_rev(HEAD), revid):

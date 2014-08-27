@@ -43,6 +43,7 @@ for py in os.listdir(my_dir):
 
     name = name.replace('_', '-')
     cmd.NAME = name
+    # NOTE: set cmd in all_commands dict
     all_commands[name] = cmd
 
 if 'help' in all_commands:

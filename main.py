@@ -56,6 +56,11 @@ from wrapper import WrapperPath, Wrapper
 
 from subcmds import all_commands
 
+# for PRINT
+import inspect
+REPO_PRINT = True
+
+
 if not is_python3():
   # pylint:disable=W0622
   input = raw_input
@@ -120,12 +125,16 @@ class _Repo(object):
     SetDefaultColoring(gopts.color)
 
     try:
+      if REPO_PRINT: print('PRINT: <%s:%s> name==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, name))
       cmd = self.commands[name]
     except KeyError:
       print("repo: '%s' is not a repo command.  See 'repo help'." % name,
             file=sys.stderr)
       return 1
+    else:
+      if REPO_PRINT: print('PRINT: <%s:%s> cmd==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, cmd))
 
+    # NOTE: object attr
     cmd.repodir = self.repodir
     cmd.manifest = XmlManifest(cmd.repodir)
     Editor.globalConfig = cmd.manifest.globalConfig
@@ -158,6 +167,7 @@ class _Repo(object):
 
     start = time.time()
     try:
+      # NOTE: Execute cmd
       result = cmd.Execute(copts, cargs)
     except (DownloadError, ManifestInvalidRevisionError,
         NoManifestException) as e:
@@ -474,11 +484,13 @@ def _Main(argv):
   Version.wrapper_version = opt.wrapper_version
   Version.wrapper_path = opt.wrapper_path
 
+  if REPO_PRINT: print('PRINT: <%s:%s> opt.repodir==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, opt.repodir))
   repo = _Repo(opt.repodir)
   try:
     try:
       init_ssh()
       init_http()
+      # NOTE: go go go
       result = repo._Run(argv) or 0
     finally:
       close_ssh()

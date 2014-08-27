@@ -36,6 +36,12 @@ from project import SyncBuffer
 from git_config import GitConfig
 from git_command import git_require, MIN_GIT_VERSION
 
+
+# for PRINT
+import inspect
+REPO_PRINT = True
+
+
 class Init(InteractiveCommand, MirrorSafeCommand):
   common = True
   helpSummary = "Initialize repo in the current directory"
@@ -138,6 +144,7 @@ to update the working directory files.
 
   def _SyncManifest(self, opt):
     m = self.manifest.manifestProject
+    # NOTE: Exists is @property
     is_new = not m.Exists
 
     if is_new:
@@ -165,11 +172,13 @@ to update the working directory files.
       if opt.manifest_branch:
         m.revisionExpr = opt.manifest_branch
       else:
+        # NOTE: default manifest_branch
         m.revisionExpr = 'refs/heads/master'
     else:
       if opt.manifest_branch:
         m.revisionExpr = opt.manifest_branch
       else:
+        # NOTE: by git-config get revisionExpr
         m.PreSync()
 
     if opt.manifest_url:
@@ -232,9 +241,11 @@ to update the working directory files.
         shutil.rmtree(m.gitdir)
       sys.exit(1)
 
+    # NOTE: when 'repo init -b' call MetaBranchSwitch()
     if opt.manifest_branch:
       m.MetaBranchSwitch()
 
+    # NOTE: git-checkout by revisionExpr
     syncbuf = SyncBuffer(m.config)
     m.Sync_LocalHalf(syncbuf)
     syncbuf.Finish()
@@ -388,6 +399,7 @@ to update the working directory files.
       sys.exit(1)
 
     self._SyncManifest(opt)
+    # NOTE: default opt.manifest_name == 'default.xml'
     self._LinkManifest(opt.manifest_name)
 
     if os.isatty(0) and os.isatty(1) and not self.manifest.IsMirror:

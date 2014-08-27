@@ -430,6 +430,7 @@ later is required to fix a server side protocol bug.
         old_project_paths = fd.read().split('\n')
       finally:
         fd.close()
+      # NOTE: find which path in 'project.list' but not in new_project_paths
       for path in old_project_paths:
         if not path:
           continue
@@ -458,6 +459,7 @@ later is required to fix a server side protocol bug.
             else:
               print('Deleting obsolete path %s' % project.worktree,
                     file=sys.stderr)
+              # NOTE: rmtree() obsolete project.worktree
               shutil.rmtree(project.worktree)
               # Try deleting parent subdirs if they are empty
               project_dir = os.path.dirname(project.worktree)
@@ -468,6 +470,7 @@ later is required to fix a server side protocol bug.
                   break
                 project_dir = os.path.dirname(project_dir)
 
+    # NOTE: write new_project_paths in 'project.list'
     new_project_paths.sort()
     fd = open(file_path, 'w')
     try:
@@ -505,6 +508,7 @@ later is required to fix a server side protocol bug.
         print('error: both -u and -p must be given', file=sys.stderr)
         sys.exit(1)
 
+    # NOTE: repo init -m
     if opt.manifest_name:
       self.manifest.Override(opt.manifest_name)
 
@@ -560,6 +564,7 @@ later is required to fix a server side protocol bug.
           if branch.startswith(R_HEADS):
             branch = branch[len(R_HEADS):]
 
+          # NOTE: build system ???
           env = os.environ.copy()
           if 'SYNC_TARGET' in env:
             target = env['SYNC_TARGET']
@@ -612,11 +617,13 @@ later is required to fix a server side protocol bug.
     if opt.repo_upgraded:
       _PostRepoUpgrade(self.manifest, quiet=opt.quiet)
 
+    # NOTE: if sync not local_only, manifestProject need Sync_NetworkHalf()
     if not opt.local_only:
       mp.Sync_NetworkHalf(quiet=opt.quiet,
                           current_branch_only=opt.current_branch_only,
                           no_tags=opt.no_tags)
 
+    # NOTE: if manifestProject update, then Sync_LocalHalf()
     if mp.HasChanges:
       syncbuf = SyncBuffer(mp.config)
       mp.Sync_LocalHalf(syncbuf)
@@ -625,6 +632,7 @@ later is required to fix a server side protocol bug.
       self._ReloadManifest(manifest_name)
       if opt.jobs is None:
         self.jobs = self.manifest.default.sync_j
+    # NOTE: all_projects GetProjects() [args specify <project>]
     all_projects = self.GetProjects(args,
                                     missing_ok=True,
                                     submodules_ok=opt.fetch_submodules)
@@ -638,12 +646,15 @@ later is required to fix a server side protocol bug.
       to_fetch.extend(all_projects)
       to_fetch.sort(key=self._fetch_times.Get, reverse=True)
 
+      # NOTE: all_projects ready _Fetch()
       fetched = self._Fetch(to_fetch, opt)
       _PostRepoFetch(rp, opt.no_repo_verify)
+      # NOTE: if sync network_only, direct return
       if opt.network_only:
         # bail out now; the rest touches the working tree
         return
 
+      # NOTE: for git submodules ...
       # Iteratively fetch missing and/or nested unregistered submodules
       previously_missing_set = set()
       while True:
@@ -669,6 +680,7 @@ later is required to fix a server side protocol bug.
       # bail out now, we have no working tree
       return
 
+    # NOTE: UpdateProjectList() into .repo/project.list
     if self.UpdateProjectList():
       sys.exit(1)
 
@@ -678,6 +690,7 @@ later is required to fix a server side protocol bug.
     for project in all_projects:
       pm.update()
       if project.worktree:
+        # NOTE: magic git-rebase remote/branch indicate by manifest
         project.Sync_LocalHalf(syncbuf)
     pm.end()
     print(file=sys.stderr)
