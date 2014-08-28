@@ -20,6 +20,12 @@ from git_config import IsId
 from git_command import git
 from progress import Progress
 
+
+# for PRINT
+import inspect
+REPO_PRINT = True
+
+
 class Start(Command):
   common = True
   helpSummary = "Start a new branch for development"
@@ -66,6 +72,7 @@ revision specified in the manifest.
           project.revisionExpr = project.dest_branch
         else:
           project.revisionExpr = self.manifest.default.revisionExpr
+      # NOTE: call StartBranch()
       if not project.StartBranch(nb):
         err.append(project)
     pm.end()

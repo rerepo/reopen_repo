@@ -1400,17 +1400,23 @@ class Project(object):
     """
     head = self.work_git.GetHead()
     if head == (R_HEADS + name):
+      if REPO_PRINT: print('PRINT: <%s:%s> already in name==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, name))
       return True
 
+    # NOTE: if branch already exist, just git-checkout
     all_refs = self.bare_ref.all
+    if REPO_PRINT: print('PRINT: <%s:%s> all_refs==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, all_refs))
     if R_HEADS + name in all_refs:
+      if REPO_PRINT: print('PRINT: <%s:%s> already exist name==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, name))
       return GitCommand(self,
                         ['checkout', name, '--'],
                         capture_stdout=True,
                         capture_stderr=True).Wait() == 0
 
     branch = self.GetBranch(name)
+    # NOTE: track remote repo
     branch.remote = self.GetRemote(self.remote.name)
+    # NOTE: track remote branch
     branch.merge = self.revisionExpr
     if not branch.merge.startswith('refs/'):
       branch.merge = R_HEADS + self.revisionExpr
@@ -1422,7 +1428,9 @@ class Project(object):
       except KeyError:
         head = None
 
+    # NOTE: if need revid == head, just manually hack git-branch
     if revid and head and revid == head:
+      if REPO_PRINT: print('PRINT: <%s:%s> revid == head==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, revid))
       ref = os.path.join(self.gitdir, R_HEADS + name)
       try:
         os.makedirs(os.path.dirname(ref))
@@ -1434,10 +1442,12 @@ class Project(object):
       branch.Save()
       return True
 
+    if REPO_PRINT: print('PRINT: <%s:%s> git-co -b branch.name==%s revid==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, branch.name, revid))
     if GitCommand(self,
                   ['checkout', '-b', branch.name, revid],
                   capture_stdout=True,
                   capture_stderr=True).Wait() == 0:
+      # NOTE: branch.Save() define in git_config.py
       branch.Save()
       return True
     return False
