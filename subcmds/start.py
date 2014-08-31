@@ -39,6 +39,9 @@ revision specified in the manifest.
     p.add_option('--all',
                  dest='all', action='store_true',
                  help='begin branch in all projects')
+    p.add_option('--track-upstream',
+                 dest='upstream', action='store_true',
+                 help='if project revision is SHA1, track upstream attr')
 
   def Execute(self, opt, args):
     if not args:
@@ -101,7 +104,9 @@ revision specified in the manifest.
       # dest_branch, if defined; or with manifest default revision instead.
       branch_merge = ''
       if IsImmutable(project.revisionExpr):
-        if project.dest_branch:
+        if opt.upstream == True and project.upstream:
+          branch_merge = project.upstream
+        elif project.dest_branch:
           branch_merge = project.dest_branch
         else:
           branch_merge = self.manifest.default.revisionExpr
