@@ -49,6 +49,12 @@ from git_command import GitCommand
 from git_command import ssh_sock
 from git_command import terminate_ssh_clients
 
+
+# for PRINT
+import inspect
+REPO_PRINT = True
+
+
 R_HEADS = 'refs/heads/'
 R_TAGS  = 'refs/tags/'
 ID_RE = re.compile(r'^[0-9a-f]{40}$')
@@ -82,6 +88,7 @@ class GitConfig(object):
 
   def __init__(self, configfile, defaults=None, jsonFile=None):
     self.file = configfile
+    # NOTE: defaults = class Project().manifest.globalConfig
     self.defaults = defaults
     self._cache_dict = None
     self._section_dict = None
@@ -125,20 +132,27 @@ class GitConfig(object):
        This configuration file is used first, if the key is not
        defined or all_keys = True then the defaults are also searched.
     """
+    if REPO_PRINT: print('PRINT: <%s:%s> GetString() name==%s all_keys==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, name, all_keys))
+#     if REPO_PRINT: print('PRINT: <%s:%s> _key(name)==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, _key(name)))
+
     try:
+      # NOTE: in self._cache call _ReadGit()
       v = self._cache[_key(name)]
     except KeyError:
+      if REPO_PRINT: print('PRINT: <%s:%s> KeyError self.defaults==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, self.defaults))
       if self.defaults:
         return self.defaults.GetString(name, all_keys = all_keys)
       v = []
 
     if not all_keys:
+      if REPO_PRINT: print('PRINT: <%s:%s> v==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, v))
       if v:
         return v[0]
       return None
 
     r = []
     r.extend(v)
+    if REPO_PRINT: print('PRINT: <%s:%s> self.defaults==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, self.defaults))
     if self.defaults:
       r.extend(self.defaults.GetString(name, all_keys = True))
     return r
@@ -192,6 +206,7 @@ class GitConfig(object):
   def GetBranch(self, name):
     """Get the branch.$name.* configuration values as an object.
     """
+    if REPO_PRINT: print('PRINT: <%s:%s> name==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, name))
     try:
       b = self._branches[name]
     except KeyError:
@@ -526,6 +541,7 @@ class Remote(object):
   """Configuration options related to a remote.
   """
   def __init__(self, config, name):
+    if REPO_PRINT: print('PRINT: <%s:%s> class Remote() config==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, config))
     self._config = config
     self.name = name
     self.url = self._Get('url')
@@ -672,8 +688,14 @@ class Branch(object):
   """Configuration options related to a single branch.
   """
   def __init__(self, config, name):
+    # NOTE: config==<git_config.GitConfig object at 0xa5307ac>
+    # NOTE: name==<branch name>
+    if REPO_PRINT: print('PRINT: <%s:%s> class Branch() config==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, config))
+    if REPO_PRINT: print('PRINT: <%s:%s> class Branch() name==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, name))
+
     self._config = config
     self.name = name
+    # NOTE: the 'merge' decide remote track branch in '.git/config'
     self.merge = self._Get('merge')
 
     r = self._Get('remote')
@@ -693,6 +715,11 @@ class Branch(object):
   def Save(self):
     """Save this branch back into the configuration.
     """
+    if REPO_PRINT: print('PRINT: <%s:%s> Save() self.name==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, self.name))
+    if REPO_PRINT: print('PRINT: <%s:%s> self.remote==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, self.remote))
+    if REPO_PRINT: print('PRINT: <%s:%s> self.remote.name==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, self.remote.name))
+    if REPO_PRINT: print('PRINT: <%s:%s> self.merge==%s' % (inspect.currentframe().f_code.co_filename, inspect.currentframe().f_lineno, self.merge))
+
     if self._config.HasSection('branch', self.name):
       if self.remote:
         self._Set('remote', self.remote.name)
@@ -706,6 +733,7 @@ class Branch(object):
         fd.write('[branch "%s"]\n' % self.name)
         if self.remote:
           fd.write('\tremote = %s\n' % self.remote.name)
+        # NOTE: when repo start 'branch.merge = self.revisionExpr' in project.py StartBranch()
         if self.merge:
           fd.write('\tmerge = %s\n' % self.merge)
       finally:
