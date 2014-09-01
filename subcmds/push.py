@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
+#import copy
 import re
 import sys
 
@@ -38,8 +38,8 @@ def _die(fmt, *args):
 
 def _SplitEmails(values):
   result = []
-  for str in values:
-    result.extend([s.strip() for s in str.split(',')])
+  for value in values:
+    result.extend([s.strip() for s in value.split(',')])
   return result
 
 class Push(InteractiveCommand):
@@ -120,7 +120,7 @@ Gerrit Code Review:  http://code.google.com/p/gerrit/
                  help='create new feature branch on git server.')
     p.add_option('-f', '--force',
                  dest='force',  action='store_true',
-                 help='PUsh without rewind check.')
+                 help='push without rewind check.')
     p.add_option('--ignore_review',
                  dest='ignore_review', action='store_true',
                  help='run even has review defined.')
@@ -138,19 +138,19 @@ Gerrit Code Review:  http://code.google.com/p/gerrit/
 
     if answer is None:
       date = branch.date
-      list = branch.commits
+      commit_list = branch.commits
 
       print 'Upload project %s/:' % project.relpath
       print '  branch %s (%2d commit%s, %s):' % (
                     name,
-                    len(list),
-                    len(list) != 1 and 's' or '',
+                    len(commit_list),
+                    len(commit_list) != 1 and 's' or '',
                     date)
-      for commit in list:
+      for commit in commit_list:
         print '         %s' % commit
 
       pushurl = project.manifest.manifestProject.config.GetString('repo.pushurl')
-      sys.stdout.write('to %s (y/n)? ' % (pushurl and 'server: ' + pushurl or 'remote') )
+      sys.stdout.write('to %s (y/N)? ' % (pushurl and 'server: ' + pushurl or 'remote') )
       answer = sys.stdin.readline().strip()
       answer = answer in ('y', 'Y', 'yes', '1', 'true', 't')
 
@@ -173,16 +173,16 @@ Gerrit Code Review:  http://code.google.com/p/gerrit/
       for branch in avail:
         name = branch.name
         date = branch.date
-        list = branch.commits
+        commit_list = branch.commits
 
         if b:
           script.append('#')
         script.append('#  branch %s (%2d commit%s, %s):' % (
                       name,
-                      len(list),
-                      len(list) != 1 and 's' or '',
+                      len(commit_list),
+                      len(commit_list) != 1 and 's' or '',
                       date))
-        for commit in list:
+        for commit in commit_list:
           script.append('#         %s' % commit)
         b[name] = branch
 

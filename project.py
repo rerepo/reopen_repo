@@ -1249,9 +1249,12 @@ class Project(object):
     if GitCommand(self, cmd).Wait() != 0:
       raise UploadError('Upload failed')
 
+    msg = "posted to %s for %s" % (pushurl, dest_branch)
     if branch.LocalMerge and branch.LocalMerge.startswith('refs/remotes'):
       self.bare_git.UpdateRef(branch.LocalMerge,
-                              R_HEADS + branch.name)
+                              R_HEADS + branch.name,
+                              message = msg)
+
 
 
 # Sync ##
