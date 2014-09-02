@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
 #import copy
 import re
 import sys
@@ -22,18 +23,26 @@ from editor import Editor
 from error import UploadError, GitError
 from project import ReviewableBranch
 
+from pyversion import is_python3
+if not is_python3():
+  # pylint:disable=W0622
+  input = raw_input
+  # pylint:enable=W0622
+
 def _ConfirmManyUploads(multiple_branches=False):
   if multiple_branches:
-    print "ATTENTION: One or more branches has an unusually high number of commits."
+    print('ATTENTION: One or more branches has an unusually high number '
+          'of commits.')
   else:
-    print "ATTENTION: You are uploading an unusually high number of commits."
-  print "YOU PROBABLY DO NOT MEAN TO DO THIS. (Did you rebase across branches?)"
-  answer = raw_input("If you are sure you intend to do this, type 'yes': ").strip()
+    print('ATTENTION: You are uploading an unusually high number of commits.')
+  print('YOU PROBABLY DO NOT MEAN TO DO THIS. (Did you rebase across '
+        'branches?)')
+  answer = input("If you are sure you intend to do this, type 'yes': ").strip()
   return answer == "yes"
 
 def _die(fmt, *args):
   msg = fmt % args
-  print >>sys.stderr, 'error: %s' % msg
+  print('error: %s' % msg, file=sys.stderr)
   sys.exit(1)
 
 def _SplitEmails(values):
@@ -45,8 +54,8 @@ def _SplitEmails(values):
 class Push(InteractiveCommand):
   common = True
   helpSummary = "Upload changes for code review"
-  helpUsage="""
-%prog [--re --cc] {[<project>]... | --replace <project>}
+  helpUsage = """
+%prog [--re --cc] [<project>]...
 """
   helpDescription = """
 The '%prog' command is used to send changes to the Gerrit Code
@@ -66,18 +75,12 @@ added to the respective list of users, and emails are sent to any
 new users.  Users passed as --reviewers must already be registered
 with the code review system, or the upload will fail.
 
-If the --replace option is passed the user can designate which
-existing change(s) in Gerrit match up to the commits in the branch
-being uploaded.  For each matched pair of change,commit the commit
-will be added as a new patch set, completely replacing the set of
-files and description associated with the change in Gerrit.
-
 Configuration
 -------------
 
 review.URL.autoupload:
 
-To disable the "Upload ... (y/n)?" prompt, you can set a per-project
+To disable the "Upload ... (y/N)?" prompt, you can set a per-project
 or global Git configuration option.  If review.URL.autoupload is set
 to "true" then repo will assume you always answer "y" at the prompt,
 and will not prompt you further.  If it is set to "false" then repo
@@ -140,14 +143,14 @@ Gerrit Code Review:  http://code.google.com/p/gerrit/
       date = branch.date
       commit_list = branch.commits
 
-      print 'Upload project %s/:' % project.relpath
-      print '  branch %s (%2d commit%s, %s):' % (
+      print('Upload project %s/:' % project.relpath)
+      print('  branch %s (%2d commit%s, %s):' % (
                     name,
                     len(commit_list),
                     len(commit_list) != 1 and 's' or '',
-                    date)
+                    date))
       for commit in commit_list:
-        print '         %s' % commit
+        print('         %s' % commit)
 
       pushurl = project.manifest.manifestProject.config.GetString('repo.pushurl')
       sys.stdout.write('to %s (y/N)? ' % (pushurl and 'server: ' + pushurl or 'remote') )
@@ -227,47 +230,49 @@ Gerrit Code Review:  http://code.google.com/p/gerrit/
       try:
         # Check if there are local changes that may have been forgotten
         if branch.project.HasChanges():
-            key = 'review.%s.autoupload' % branch.project.remote.review
-            answer = branch.project.config.GetBoolean(key)
+          key = 'review.%s.autoupload' % branch.project.remote.review
+          answer = branch.project.config.GetBoolean(key)
 
-            # if they want to auto upload, let's not ask because it could be automated
-            if answer is None:
-                sys.stdout.write('Uncommitted changes in ' + branch.project.name + ' (did you forget to amend?). Continue uploading? (y/n) ')
-                a = sys.stdin.readline().strip().lower()
-                if a not in ('y', 'yes', 't', 'true', 'on'):
-                    print >>sys.stderr, "skipping upload"
-                    branch.uploaded = False
-                    branch.error = 'User aborted'
-                    continue
+          # if they want to auto upload, let's not ask because it could be automated
+          if answer is None:
+            sys.stdout.write('Uncommitted changes in ' + branch.project.name + ' (did you forget to amend?). Continue uploading? (y/N) ')
+            a = sys.stdin.readline().strip().lower()
+            if a not in ('y', 'yes', 't', 'true', 'on'):
+              print("skipping upload", file=sys.stderr)
+              branch.uploaded = False
+              branch.error = 'User aborted'
+              continue
 
         branch.project.UploadNoReview(opt, branch=branch.name)
         branch.uploaded = True
-      except UploadError, e:
+      except UploadError as e:
         branch.error = e
         branch.uploaded = False
         have_errors = True
-      except GitError, e:
-        print >>sys.stderr, "Error: "+ str(e)
+      except GitError as e:
+        print("Error: "+ str(e), file=sys.stderr)
         sys.exit(1)
 
 
-    print >>sys.stderr, ''
-    print >>sys.stderr, '--------------------------------------------'
+    print(file=sys.stderr)
+    print('----------------------------------------------------------------------', file=sys.stderr)
 
     if have_errors:
       for branch in todo:
         if not branch.uploaded:
-          print >>sys.stderr, '[FAILED] %-15s %-15s  (%s)' % (
+          print('[FAILED] %-15s %-15s  (%s)' % (
                  branch.project.relpath + '/', \
                  branch.name, \
-                 branch.error)
-      print >>sys.stderr, ''
+                 branch.error),
+                 file=sys.stderr)
+      print()
 
     for branch in todo:
-        if branch.uploaded:
-          print >>sys.stderr, '[OK    ] %-15s %s' % (
-                 branch.project.relpath + '/',
-                 branch.name)
+      if branch.uploaded:
+        print('[OK    ] %-15s %s' % (
+               branch.project.relpath + '/',
+               branch.name),
+               file=sys.stderr)
 
     if have_errors:
       sys.exit(1)
@@ -279,8 +284,7 @@ Gerrit Code Review:  http://code.google.com/p/gerrit/
     # force push only allow one project
     if opt.force:
       if len(project_list) != 1:
-        print >>sys.stderr, \
-              'error: --force requires exactly one project'
+        print('error: --force requires exactly one project', file=sys.stderr)
         sys.exit(1)
 
     # if not create new branch, check whether branch has new commit.
@@ -294,7 +298,7 @@ Gerrit Code Review:  http://code.google.com/p/gerrit/
 
     # run git push
     if not pending:
-      print >>sys.stdout, "no branches ready for upload"
+      print("no branches ready for upload", file=sys.stderr)
     elif len(pending) == 1 and len(pending[0][1]) == 1:
       self._SingleBranch(opt, pending[0][1][0])
     else:
