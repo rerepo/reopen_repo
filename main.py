@@ -94,6 +94,14 @@ class _Repo(object):
     self.commands = all_commands
     # add 'branch' as an alias for 'branches'
     all_commands['branch'] = all_commands['branches']
+    # alias for short cmd
+    all_commands['br'] = all_commands['branches']
+    all_commands['co'] = all_commands['checkout']
+    all_commands['cp'] = all_commands['cherry-pick']
+    all_commands['df'] = all_commands['diff']
+    all_commands['dmf'] = all_commands['diffmanifests']
+    all_commands['mf'] = all_commands['manifest']
+    all_commands['st'] = all_commands['status']
 
   def _Run(self, argv):
     result = 0
