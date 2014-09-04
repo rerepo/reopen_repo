@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+import sys
+import os
 from color import Coloring
 from command import PagedCommand
 from manifest_xml import XmlManifest
@@ -65,6 +68,12 @@ synced and their revisions won't be found.
 """
 
   def _Options(self, p):
+    p.add_option('-b', '--branch',
+                 type='string',  action='store', dest='branch',
+                 help='Select manifests.git branch to diff.')
+    p.add_option('-r', '--reverse',
+                 dest='reverse', action='store_true', default=False,
+                 help='Reverse manifests diff order.')
     p.add_option('--raw',
                  dest='raw', action='store_true',
                  help='Display raw diff.')
@@ -190,14 +199,38 @@ synced and their revisions won't be found.
       self.printProject = self.printAdded = self.printRemoved = self.printRevision = self.printText
 
     manifest1 = XmlManifest(self.manifest.repodir)
-    manifest1.Override(args[0])
+
+    if opt.branch:
+      xml = self.manifest.manifestProject.ShowBranchBlob(opt.branch, args[0])
+      if not xml:
+        print('error: can not access manifests.git', file=sys.stderr)
+        return 1
+      if len(xml) == 0:
+        print('error: no found "%s" in manifests.git branch "%s"' % (args[0], opt.branch), file=sys.stderr)
+        return 1
+      tmp_xml = '.%s' % args[0]
+      path = os.path.join(self.manifest.manifestProject.worktree, tmp_xml)
+      try:
+        with open(path, 'w') as f:
+          f.write(xml)
+      except IOError:
+        print('error: can not create tmp xml "%s"' % path, file=sys.stderr)
+        return 1
+      manifest1.Override(tmp_xml)
+      os.remove(path)
+    else:
+      manifest1.Override(args[0])
+
     if len(args) == 1:
       manifest2 = self.manifest
     else:
       manifest2 = XmlManifest(self.manifest.repodir)
       manifest2.Override(args[1])
 
-    diff = manifest1.projectsDiff(manifest2)
+    if opt.reverse == True:
+      diff = manifest2.projectsDiff(manifest1)
+    else:
+      diff = manifest1.projectsDiff(manifest2)
     if opt.raw:
       self._printRawDiff(diff)
     else:

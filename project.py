@@ -1042,6 +1042,18 @@ class Project(object):
       print(line[:-1])
     p.Wait()
 
+## Show Display ##
+
+  def ShowBranchBlob(self, branch, blob):
+    cmd = ['show']
+    cmd.append('%s:%s' % (branch, blob))
+    p = GitCommand(self,
+                   cmd,
+                   capture_stdout = True,
+                   capture_stderr = True)
+    if p.Wait() != 0:
+      return None
+    return p.stdout
 
 # Publish / Upload ##
 
