@@ -702,6 +702,7 @@ class Branch(object):
     if r:
       self.remote = self._config.GetRemote(r)
     else:
+      # NOTE: just local branch, no remote track
       self.remote = None
 
   @property
