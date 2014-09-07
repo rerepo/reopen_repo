@@ -247,6 +247,9 @@ later is required to fix a server side protocol bug.
                    help='smart sync using manifest from a known tag')
 
     g = p.add_option_group('repo Version options')
+    g.add_option('--no-repo-sync',
+                 dest='no_repo_sync', action='store_true',
+                 help='do not sync repo source code')
     g.add_option('--no-repo-verify',
                  dest='no_repo_verify', action='store_true',
                  help='do not verify repo source code')
@@ -715,6 +718,7 @@ later is required to fix a server side protocol bug.
           print('error: failed to remove existing smart sync override manifest: %s' %
                 e, file=sys.stderr)
 
+    # NOTE: get repoProject
     rp = self.manifest.repoProject
     rp.PreSync()
 
@@ -790,14 +794,16 @@ later is required to fix a server side protocol bug.
     self._fetch_times = _FetchTimes(self.manifest)
     if not opt.local_only:
       to_fetch = []
-      now = time.time()
-      if _ONE_DAY_S <= (now - rp.LastFetch):
-        to_fetch.append(rp)
+      if not opt.no_repo_sync:
+        now = time.time()
+        if _ONE_DAY_S <= (now - rp.LastFetch):
+          to_fetch.append(rp)
       to_fetch.extend(all_projects)
       to_fetch.sort(key=self._fetch_times.Get, reverse=True)
 
       fetched = self._Fetch(to_fetch, opt)
-      _PostRepoFetch(rp, opt.no_repo_verify)
+      if not opt.no_repo_sync:
+        _PostRepoFetch(rp, opt.no_repo_verify)
       if opt.network_only:
         # bail out now; the rest touches the working tree
         return
