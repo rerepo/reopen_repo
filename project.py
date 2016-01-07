@@ -1406,6 +1406,11 @@ class Project(object):
         syncbuf.fail(self, _PriorSyncFailedError())
         return
 
+      if syncbuf.cleanup:
+        self._Clean()
+        self._Checkout(revid, quiet=True, force=True)
+        return
+
       if head == revid:
         # No changes; don't do anything further.
         # Except if the head needs to be detached
@@ -2259,15 +2264,23 @@ class Project(object):
     except OSError:
       return False
 
-  def _Checkout(self, rev, quiet=False):
+  def _Checkout(self, rev, quiet=False, force=False):
     cmd = ['checkout']
     if quiet:
       cmd.append('-q')
+    if force:
+      cmd.append('-f')
     cmd.append(rev)
     cmd.append('--')
     if GitCommand(self, cmd).Wait() != 0:
       if self._allrefs:
         raise GitError('%s checkout %s ' % (self.name, rev))
+
+  def _Clean(self,quiet=False):
+    cmd = ['clean', '-d', '-x', '-f']
+    if GitCommand(self, cmd).Wait() != 0:
+      if self._allrefs:
+        raise GitError('%s clean %s ' % (self.name, rev))
 
   def _CherryPick(self, rev):
     cmd = ['cherry-pick']
@@ -2933,7 +2946,7 @@ class _SyncColoring(Coloring):
 
 class SyncBuffer(object):
 
-  def __init__(self, config, detach_head=False):
+  def __init__(self, config, detach_head=False, cleanup=False):
     self._messages = []
     self._failures = []
     self._later_queue1 = []
@@ -2945,6 +2958,7 @@ class SyncBuffer(object):
     self.detach_head = detach_head
     self.clean = True
     self.recent_clean = True
+    self.cleanup = cleanup
 
   def info(self, project, fmt, *args):
     self._messages.append(_InfoMessage(project, fmt % args))

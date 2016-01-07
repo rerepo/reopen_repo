@@ -238,6 +238,9 @@ later is required to fix a server side protocol bug.
                  help='only fetch projects fixed to sha1 if revision does not exist locally')
     p.add_option('--prune', dest='prune', action='store_true',
                  help='delete refs that no longer exist on the remote')
+    p.add_option('-x','--clean',
+                 dest='clean', action='store_true',
+                 help='clean git untracked files before checkout files', default=False)
     if show_smart:
       p.add_option('-s', '--smart-sync',
                    dest='smart_sync', action='store_true',
@@ -831,7 +834,8 @@ later is required to fix a server side protocol bug.
       sys.exit(1)
 
     syncbuf = SyncBuffer(mp.config,
-                         detach_head = opt.detach_head)
+                         detach_head = opt.detach_head,
+                         cleanup = opt.clean)
     pm = Progress('Syncing work tree', len(all_projects))
     for project in all_projects:
       pm.update()
