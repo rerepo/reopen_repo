@@ -37,21 +37,25 @@ except ImportError:
   kerberos = None
 
 from color import SetDefaultColoring
+import event_log
 from trace import SetTrace
 from git_command import git, GitCommand
 from git_config import init_ssh, close_ssh
 from command import InteractiveCommand
 from command import MirrorSafeCommand
+from command import GitcAvailableCommand, GitcClientCommand
 from subcmds.version import Version
 from editor import Editor
 from error import DownloadError
+from error import InvalidProjectGroupsError
 from error import ManifestInvalidRevisionError
 from error import ManifestParseError
 from error import NoManifestException
 from error import NoSuchProjectError
 from error import RepoChangedException
-from manifest_xml import XmlManifest
-from pager import RunPager
+import gitc_utils
+from manifest_xml import GitcManifest, XmlManifest
+from pager import RunPager, TerminatePager
 from wrapper import WrapperPath, Wrapper
 
 from subcmds import all_commands
@@ -62,9 +66,7 @@ REPO_PRINT = True
 
 
 if not is_python3():
-  # pylint:disable=W0622
   input = raw_input
-  # pylint:enable=W0622
 
 global_options = optparse.OptionParser(
                  usage="repo [-p|--paginate|--no-pager] COMMAND [ARGS]"
@@ -87,6 +89,9 @@ global_options.add_option('--time',
 global_options.add_option('--version',
                           dest='show_version', action='store_true',
                           help='display this version of repo')
+global_options.add_option('--event-log',
+                          dest='event_log', action='store',
+                          help='filename of event log to append timeline to')
 
 class _Repo(object):
   def __init__(self, repodir):
@@ -137,10 +142,26 @@ class _Repo(object):
     # NOTE: object attr
     cmd.repodir = self.repodir
     cmd.manifest = XmlManifest(cmd.repodir)
+    cmd.gitc_manifest = None
+    gitc_client_name = gitc_utils.parse_clientdir(os.getcwd())
+    if gitc_client_name:
+      cmd.gitc_manifest = GitcManifest(cmd.repodir, gitc_client_name)
+      cmd.manifest.isGitcClient = True
+
     Editor.globalConfig = cmd.manifest.globalConfig
 
     if not isinstance(cmd, MirrorSafeCommand) and cmd.manifest.IsMirror:
       print("fatal: '%s' requires a working directory" % name,
+            file=sys.stderr)
+      return 1
+
+    if isinstance(cmd, GitcAvailableCommand) and not gitc_utils.get_gitc_manifest_dir():
+      print("fatal: '%s' requires GITC to be available" % name,
+            file=sys.stderr)
+      return 1
+
+    if isinstance(cmd, GitcClientCommand) and not gitc_client_name:
+      print("fatal: '%s' requires a GITC client" % name,
             file=sys.stderr)
       return 1
 
@@ -166,6 +187,8 @@ class _Repo(object):
         RunPager(config)
 
     start = time.time()
+    cmd_event = cmd.event_log.Add(name, event_log.TASK_COMMAND, start)
+    cmd.event_log.SetParent(cmd_event)
     try:
       # NOTE: Execute cmd
       result = cmd.Execute(copts, cargs)
@@ -183,8 +206,19 @@ class _Repo(object):
       else:
         print('error: no project in current directory', file=sys.stderr)
       result = 1
+    except InvalidProjectGroupsError as e:
+      if e.name:
+        print('error: project group must be enabled for project %s' % e.name, file=sys.stderr)
+      else:
+        print('error: project group must be enabled for the project in the current directory', file=sys.stderr)
+      result = 1
+    except SystemExit as e:
+      if e.code:
+        result = e.code
+      raise
     finally:
-      elapsed = time.time() - start
+      finish = time.time()
+      elapsed = finish - start
       hours, remainder = divmod(elapsed, 3600)
       minutes, seconds = divmod(remainder, 60)
       if gopts.time:
@@ -193,6 +227,12 @@ class _Repo(object):
         else:
           print('real\t%dh%dm%.3fs' % (hours, minutes, seconds),
                 file=sys.stderr)
+
+      cmd.event_log.FinishEvent(cmd_event, finish,
+                                result is None or result == 0)
+      if gopts.event_log:
+        cmd.event_log.Write(os.path.abspath(
+                            os.path.expanduser(gopts.event_log)))
 
     return result
 
@@ -512,6 +552,7 @@ def _Main(argv):
       print('fatal: %s' % e, file=sys.stderr)
       result = 128
 
+  TerminatePager()
   sys.exit(result)
 
 if __name__ == '__main__':

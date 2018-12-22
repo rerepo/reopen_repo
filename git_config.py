@@ -15,9 +15,12 @@
 
 from __future__ import print_function
 
+import contextlib
+import errno
 import json
 import os
 import re
+import ssl
 import subprocess
 import sys
 try:
@@ -39,6 +42,7 @@ else:
 
 from signal import SIGTERM
 from error import GitError, UploadError
+import platform_utils
 from trace import Trace
 if is_python3():
   from http.client import HTTPException
@@ -48,21 +52,27 @@ else:
 from git_command import GitCommand
 from git_command import ssh_sock
 from git_command import terminate_ssh_clients
-
+from git_refs import R_CHANGES, R_HEADS, R_TAGS
 
 # for PRINT
 import inspect
 REPO_PRINT = True
 
-
-R_HEADS = 'refs/heads/'
-R_TAGS  = 'refs/tags/'
 ID_RE = re.compile(r'^[0-9a-f]{40}$')
 
 REVIEW_CACHE = dict()
 
+def IsChange(rev):
+  return rev.startswith(R_CHANGES)
+
 def IsId(rev):
   return ID_RE.match(rev)
+
+def IsTag(rev):
+  return rev.startswith(R_TAGS)
+
+def IsImmutable(rev):
+    return IsChange(rev) or IsId(rev) or IsTag(rev)
 
 def _key(name):
   parts = name.split('.')
@@ -272,7 +282,7 @@ class GitConfig(object):
     try:
       if os.path.getmtime(self._json) \
       <= os.path.getmtime(self.file):
-        os.remove(self._json)
+        platform_utils.remove(self._json)
         return None
     except OSError:
       return None
@@ -284,7 +294,7 @@ class GitConfig(object):
       finally:
         fd.close()
     except (IOError, ValueError):
-      os.remove(self._json)
+      platform_utils.remove(self._json)
       return None
 
   def _SaveJson(self, cache):
@@ -295,8 +305,8 @@ class GitConfig(object):
       finally:
         fd.close()
     except (IOError, TypeError):
-      if os.path.exists(self.json):
-        os.remove(self._json)
+      if os.path.exists(self._json):
+        platform_utils.remove(self._json)
 
   def _ReadGit(self):
     """
@@ -309,8 +319,9 @@ class GitConfig(object):
     d = self._do('--null', '--list')
     if d is None:
       return c
-    for line in d.decode('utf-8').rstrip('\0').split('\0'):  # pylint: disable=W1401
-                                                             # Backslash is not anomalous
+    if not is_python3():
+      d = d.decode('utf-8')
+    for line in d.rstrip('\0').split('\0'):
       if '\n' in line:
         key, val = line.split('\n', 1)
       else:
@@ -477,9 +488,13 @@ def _open_ssh(host, port=None):
              % (host,port, str(e)), file=sys.stderr)
       return False
 
+    time.sleep(1)
+    ssh_died = (p.poll() is not None)
+    if ssh_died:
+      return False
+
     _master_processes.append(p)
     _master_keys.add(key)
-    time.sleep(1)
     return True
   finally:
     _master_keys_lock.release()
@@ -501,7 +516,7 @@ def close_ssh():
   d = ssh_sock(create=False)
   if d:
     try:
-      os.rmdir(os.path.dirname(d))
+      platform_utils.rmdir(os.path.dirname(d))
     except OSError:
       pass
 
@@ -516,6 +531,46 @@ def GetSchemeFromUrl(url):
   if m:
     return m.group(1)
   return None
+
+@contextlib.contextmanager
+def GetUrlCookieFile(url, quiet):
+  if url.startswith('persistent-'):
+    try:
+      p = subprocess.Popen(
+          ['git-remote-persistent-https', '-print_config', url],
+          stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE)
+      try:
+        cookieprefix = 'http.cookiefile='
+        proxyprefix = 'http.proxy='
+        cookiefile = None
+        proxy = None
+        for line in p.stdout:
+          line = line.strip()
+          if line.startswith(cookieprefix):
+            cookiefile = os.path.expanduser(line[len(cookieprefix):])
+          if line.startswith(proxyprefix):
+            proxy = line[len(proxyprefix):]
+        # Leave subprocess open, as cookie file may be transient.
+        if cookiefile or proxy:
+          yield cookiefile, proxy
+          return
+      finally:
+        p.stdin.close()
+        if p.wait():
+          err_msg = p.stderr.read()
+          if ' -print_config' in err_msg:
+            pass  # Persistent proxy doesn't support -print_config.
+          elif not quiet:
+            print(err_msg, file=sys.stderr)
+    except OSError as e:
+      if e.errno == errno.ENOENT:
+        pass  # No persistent proxy.
+      raise
+  cookiefile = GitConfig.ForUser().GetString('http.cookiefile')
+  if cookiefile:
+    cookiefile = os.path.expanduser(cookiefile)
+  yield cookiefile, None
 
 def _preconnect(url):
   m = URI_ALL.match(url)
@@ -545,6 +600,7 @@ class Remote(object):
     self._config = config
     self.name = name
     self.url = self._Get('url')
+    self.pushUrl = self._Get('pushurl')
     self.review = self._Get('review')
     self.projectname = self._Get('projectname')
     self.fetch = list(map(RefSpec.FromString,
@@ -576,7 +632,7 @@ class Remote(object):
     connectionUrl = self._InsteadOf()
     return _preconnect(connectionUrl)
 
-  def ReviewUrl(self, userEmail):
+  def ReviewUrl(self, userEmail, validate_certs):
     if self._review_url is None:
       if self.review is None:
         return None
@@ -584,7 +640,7 @@ class Remote(object):
       u = self.review
       if u.startswith('persistent-'):
         u = u[len('persistent-'):]
-      if u.split(':')[0] not in ('http', 'https', 'sso'):
+      if u.split(':')[0] not in ('http', 'https', 'sso', 'ssh'):
         u = 'http://%s' % u
       if u.endswith('/Gerrit'):
         u = u[:len(u) - len('/Gerrit')]
@@ -600,13 +656,20 @@ class Remote(object):
         host, port = os.environ['REPO_HOST_PORT_INFO'].split()
         self._review_url = self._SshReviewUrl(userEmail, host, port)
         REVIEW_CACHE[u] = self._review_url
-      elif u.startswith('sso:'):
+      elif u.startswith('sso:') or u.startswith('ssh:'):
         self._review_url = u  # Assume it's right
+        REVIEW_CACHE[u] = self._review_url
+      elif 'REPO_IGNORE_SSH_INFO' in os.environ:
+        self._review_url = http_url
         REVIEW_CACHE[u] = self._review_url
       else:
         try:
           info_url = u + 'ssh_info'
-          info = urllib.request.urlopen(info_url).read()
+          if not validate_certs:
+              context = ssl._create_unverified_context()
+              info = urllib.request.urlopen(info_url, context=context).read()
+          else:
+              info = urllib.request.urlopen(info_url).read()
           if info == 'NOT_AVAILABLE' or '<' in info:
             # If `info` contains '<', we assume the server gave us some sort
             # of HTML response back, like maybe a login page.
@@ -671,6 +734,10 @@ class Remote(object):
     """Save this remote to the configuration.
     """
     self._Set('url', self.url)
+    if self.pushUrl is not None:
+      self._Set('pushurl', self.pushUrl + '/' + self.projectname)
+    else:
+      self._Set('pushurl', self.pushUrl)
     self._Set('review', self.review)
     self._Set('projectname', self.projectname)
     self._Set('fetch', list(map(str, self.fetch)))

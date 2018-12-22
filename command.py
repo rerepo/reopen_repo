@@ -19,6 +19,7 @@ import platform
 import re
 import sys
 
+from event_log import EventLog
 from error import NoSuchProjectError
 from error import InvalidProjectGroupsError
 
@@ -28,10 +29,11 @@ class Command(object):
   """
 
   common = False
+  event_log = EventLog()
   manifest = None
   _optparse = None
 
-  def WantPager(self, opt):
+  def WantPager(self, _opt):
     return False
 
   def ReadEnvironmentOptions(self, opts):
@@ -63,7 +65,7 @@ class Command(object):
         usage = self.helpUsage.strip().replace('%prog', me)
       except AttributeError:
         usage = 'repo %s' % self.NAME
-      self._optparse = optparse.OptionParser(usage = usage)
+      self._optparse = optparse.OptionParser(usage=usage)
       self._Options(self._optparse)
     return self._optparse
 
@@ -106,19 +108,24 @@ class Command(object):
   def _UpdatePathToProjectMap(self, project):
     self._by_path[project.worktree] = project
 
-  def _GetProjectByPath(self, path):
+  def _GetProjectByPath(self, manifest, path):
     project = None
     if os.path.exists(path):
       oldpath = None
-      while path \
-        and path != oldpath \
-        and path != self.manifest.topdir:
+      while path and \
+            path != oldpath and \
+            path != manifest.topdir:
         try:
           project = self._by_path[path]
           break
         except KeyError:
           oldpath = path
           path = os.path.dirname(path)
+      if not project and path == manifest.topdir:
+        try:
+          project = self._by_path[path]
+        except KeyError:
+          pass
     else:
       try:
         project = self._by_path[path]
@@ -126,16 +133,20 @@ class Command(object):
         pass
     return project
 
-  def GetProjects(self, args, missing_ok=False, submodules_ok=False):
+  def GetProjects(self, args, manifest=None, groups='', missing_ok=False,
+                  submodules_ok=False):
     """A list of projects that match the arguments.
     """
     # NOTE: manifest.projects is @property
-    all_projects_list = self.manifest.projects
+    if not manifest:
+      manifest = self.manifest
+    all_projects_list = manifest.projects
     result = []
 
-    mp = self.manifest.manifestProject
+    mp = manifest.manifestProject
 
-    groups = mp.config.GetString('manifest.groups')
+    if not groups:
+      groups = mp.config.GetString('manifest.groups')
     if not groups:
       groups = 'default,platform-' + platform.system().lower()
     groups = [x for x in re.split(r'[,\s]+', groups) if x]
@@ -148,30 +159,29 @@ class Command(object):
                                   for p in project.GetDerivedSubprojects())
       all_projects_list.extend(derived_projects.values())
       for project in all_projects_list:
-        if ((missing_ok or project.Exists) and
-            project.MatchesGroups(groups)):
+        if (missing_ok or project.Exists) and project.MatchesGroups(groups):
           result.append(project)
     else:
       self._ResetPathToProjectMap(all_projects_list)
 
       # NOTE: for GetProjectsWithName()
       for arg in args:
-        projects = self.manifest.GetProjectsWithName(arg)
+        projects = manifest.GetProjectsWithName(arg)
 
         if not projects:
           path = os.path.abspath(arg).replace('\\', '/')
-          project = self._GetProjectByPath(path)
+          project = self._GetProjectByPath(manifest, path)
 
           # If it's not a derived project, update path->project mapping and
           # search again, as arg might actually point to a derived subproject.
-          if (project and not project.Derived and
-              (submodules_ok or project.sync_s)):
+          if (project and not project.Derived and (submodules_ok or
+                                                   project.sync_s)):
             search_again = False
             for subproject in project.GetDerivedSubprojects():
               self._UpdatePathToProjectMap(subproject)
               search_again = True
             if search_again:
-              project = self._GetProjectByPath(path) or project
+              project = self._GetProjectByPath(manifest, path) or project
 
           if project:
             projects = [project]
@@ -192,39 +202,53 @@ class Command(object):
     result.sort(key=_getpath)
     return result
 
-  def FindProjects(self, args):
+  def FindProjects(self, args, inverse=False):
     result = []
     patterns = [re.compile(r'%s' % a, re.IGNORECASE) for a in args]
     for project in self.GetProjects(''):
       for pattern in patterns:
-        if pattern.search(project.name) or pattern.search(project.relpath):
+        match = pattern.search(project.name) or pattern.search(project.relpath)
+        if not inverse and match:
           result.append(project)
           break
+        if inverse and match:
+          break
+      else:
+        if inverse:
+          result.append(project)
     result.sort(key=lambda project: project.relpath)
     return result
 
-# pylint: disable=W0223
-# Pylint warns that the `InteractiveCommand` and `PagedCommand` classes do not
-# override method `Execute` which is abstract in `Command`.  Since that method
-# is always implemented in classes derived from `InteractiveCommand` and
-# `PagedCommand`, this warning can be suppressed.
+
 class InteractiveCommand(Command):
   """Command which requires user interaction on the tty and
      must not run within a pager, even if the user asks to.
   """
-  def WantPager(self, opt):
+  def WantPager(self, _opt):
     return False
+
 
 class PagedCommand(Command):
   """Command which defaults to output in a pager, as its
      display tends to be larger than one screen full.
   """
-  def WantPager(self, opt):
+  def WantPager(self, _opt):
     return True
 
-# pylint: enable=W0223
 
 class MirrorSafeCommand(object):
   """Command permits itself to run within a mirror,
      and does not require a working directory.
+  """
+
+
+class GitcAvailableCommand(object):
+  """Command that requires GITC to be available, but does
+     not require the local client to be a GITC client.
+  """
+
+
+class GitcClientCommand(object):
+  """Command that requires the local client to be a GITC
+     client.
   """

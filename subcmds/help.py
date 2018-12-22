@@ -19,7 +19,8 @@ import sys
 from formatter import AbstractFormatter, DumbWriter
 
 from color import Coloring
-from command import PagedCommand, MirrorSafeCommand
+from command import PagedCommand, MirrorSafeCommand, GitcAvailableCommand, GitcClientCommand
+import gitc_utils
 
 class Help(PagedCommand, MirrorSafeCommand):
   common = False
@@ -54,9 +55,21 @@ Displays detailed usage information about a command.
   def _PrintCommonCommands(self):
     print('usage: repo COMMAND [ARGS]')
     print('The most commonly used repo commands are:')
+
+    def gitc_supported(cmd):
+      if not isinstance(cmd, GitcAvailableCommand) and not isinstance(cmd, GitcClientCommand):
+        return True
+      if self.manifest.isGitcClient:
+        return True
+      if isinstance(cmd, GitcClientCommand):
+        return False
+      if gitc_utils.get_gitc_manifest_dir():
+        return True
+      return False
+
     commandNames = list(sorted([name
                     for name, command in self.commands.items()
-                    if command.common]))
+                    if command.common and gitc_supported(command)]))
 
     maxlen = 0
     for name in commandNames:
@@ -94,15 +107,13 @@ Displays detailed usage information about a command.
 
         self.heading('%s', heading)
         self.nl()
-
-        self.heading('%s', ''.ljust(len(heading), '-'))
         self.nl()
 
         me = 'repo %s' % cmd.NAME
         body = body.strip()
         body = body.replace('%prog', me)
 
-        asciidoc_hdr = re.compile(r'^\n?([^\n]{1,})\n([=~-]{2,})$')
+        asciidoc_hdr = re.compile(r'^\n?#+ (.+)$')
         for para in body.split("\n\n"):
           if para.startswith(' '):
             self.write('%s', para)
@@ -112,19 +123,8 @@ Displays detailed usage information about a command.
 
           m = asciidoc_hdr.match(para)
           if m:
-            title = m.group(1)
-            section_type = m.group(2)
-            if section_type[0] in ('=', '-'):
-              p = self.heading
-            else:
-              def _p(fmt, *args):
-                self.write('  ')
-                self.heading(fmt, *args)
-              p = _p
-
-            p('%s', title)
+            self.heading(m.group(1))
             self.nl()
-            p('%s', ''.ljust(len(title), section_type[0]))
             self.nl()
             continue
 
