@@ -1689,7 +1689,7 @@ class Project(object):
                       capture_stdout=True,
                       capture_stderr=True).Wait() == 0
 
-  def AbandonBranch(self, name):
+  def AbandonBranch(self, name, force=True):
     """Destroy a local topic branch.
 
     Args:
@@ -1719,8 +1719,12 @@ class Project(object):
       else:
         self._Checkout(revid, quiet=True)
 
+    if force == True:
+      del_opt = '-D'
+    else:
+      del_opt = '-d'
     return GitCommand(self,
-                      ['branch', '-D', name],
+                      ['branch', del_opt, name],
                       capture_stdout=True,
                       capture_stderr=True).Wait() == 0
 

@@ -35,6 +35,9 @@ It is equivalent to "git branch -D <branchname>".
     p.add_option('--all',
                  dest='all', action='store_true',
                  help='delete all branches in all projects')
+    p.add_option('-d', '--delete',
+                 dest='delete', action='store_true',
+                 help='use git branch -d instead of -D force delete')
 
   def Execute(self, opt, args):
     if not opt.all and not args:
@@ -63,7 +66,10 @@ It is equivalent to "git branch -D <branchname>".
         branches = [nb]
 
       for name in branches:
-        status = project.AbandonBranch(name)
+        if opt.delete:
+          status = project.AbandonBranch(name, force=False)
+        else:
+          status = project.AbandonBranch(name)
         if status is not None:
           if status:
             success[name].append(project)
