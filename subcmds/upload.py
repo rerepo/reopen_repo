@@ -163,6 +163,9 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
                  type='string', action='append', dest='push_options',
                  default=[],
                  help='Additional push options to transmit')
+    p.add_option('--pm', '--push_mode',
+                 action='store_true', dest='push_mode', default=False,
+                 help='If specified, upload direct to refs/heads/branch.')
     p.add_option('-D', '--destination', '--dest',
                  type='string', action='store', dest='dest_branch',
                  metavar='BRANCH',
@@ -398,7 +401,8 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
                                wip=opt.wip,
                                dest_branch=destination,
                                validate_certs=opt.validate_certs,
-                               push_options=opt.push_options)
+                               push_options=opt.push_options,
+                               push_mode=opt.push_mode)
 
         branch.uploaded = True
       except UploadError as e:

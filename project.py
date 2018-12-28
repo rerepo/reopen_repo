@@ -180,8 +180,21 @@ class ReviewableBranch(object):
                       wip=False,
                       dest_branch=None,
                       validate_certs=True,
-                      push_options=None):
-    self.project.UploadForReview(self.name,
+                      push_options=None,
+                      push_mode=False):
+    if push_mode == True:
+      self.project.UploadForPreview(self.name,
+                                 people,
+                                 auto_topic=auto_topic,
+                                 draft=draft,
+                                 private=private,
+                                 notify=notify,
+                                 wip=wip,
+                                 dest_branch=dest_branch,
+                                 validate_certs=validate_certs,
+                                 push_options=push_options)
+    else:
+      self.project.UploadForReview(self.name,
                                  people,
                                  auto_topic=auto_topic,
                                  draft=draft,
@@ -1126,6 +1139,67 @@ class Project(object):
       if rb.commits:
         return rb
     return None
+
+  def UploadForPreview(self, branch=None,
+                      people=([], []),
+                      auto_topic=False,
+                      draft=False,
+                      private=False,
+                      notify=None,
+                      wip=False,
+                      dest_branch=None,
+                      validate_certs=True,
+                      push_options=None):
+    """Uploads the named branch to code server.
+    """
+    if branch is None:
+      branch = self.CurrentBranch
+    if branch is None:
+      raise GitError('not currently on a branch')
+
+    branch = self.GetBranch(branch)
+    if not branch.LocalMerge:
+      raise GitError('branch %s does not track a remote' % branch.name)
+    if not branch.remote.review:
+      raise GitError('remote %s has no review url' % branch.remote.name)
+
+    if dest_branch is None:
+      dest_branch = self.dest_branch
+    if dest_branch is None:
+      dest_branch = branch.merge
+    if not dest_branch.startswith(R_HEADS):
+      dest_branch = R_HEADS + dest_branch
+
+    if not branch.remote.projectname:
+      branch.remote.projectname = self.name
+      branch.remote.Save()
+
+    url = branch.remote.name
+    #url = branch.remote.ReviewUrl(self.UserEmail, validate_certs)
+    #print("url:", url)
+    if url is None:
+      raise UploadError('remote url not configured')
+    cmd = ['push']
+
+    for push_option in (push_options or []):
+      cmd.append('-o')
+      cmd.append(push_option)
+
+    cmd.append(url)
+
+    if dest_branch.startswith(R_HEADS):
+      dest_branch = dest_branch[len(R_HEADS):]
+
+    ref_spec = '%s:%s' % (R_HEADS + branch.name, R_HEADS + dest_branch)
+    cmd.append(ref_spec)
+
+    if GitCommand(self, cmd, bare=True).Wait() != 0:
+      raise UploadError('Upload failed')
+
+    msg = "posted to %s for %s" % (url, dest_branch)
+    self.bare_git.UpdateRef(R_PUB + branch.name,
+                            R_HEADS + branch.name,
+                            message=msg)
 
   def UploadForReview(self, branch=None,
                       people=([], []),
