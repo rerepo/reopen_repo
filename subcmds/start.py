@@ -107,6 +107,9 @@ revision specified in the manifest.
       # dest_branch, if defined; or with manifest default revision instead.
       branch_merge = ''
       if IsImmutable(project.revisionExpr):
+        print("project.upstream", project.upstream)
+        print("project.dest_branch", project.dest_branch)
+        print("self.manifest.default.revisionExpr", self.manifest.default.revisionExpr)
         if project.dest_branch:
           branch_merge = project.dest_branch
         else:
