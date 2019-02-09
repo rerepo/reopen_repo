@@ -1763,6 +1763,31 @@ class Project(object):
                       capture_stdout=True,
                       capture_stderr=True).Wait() == 0
 
+  def MergeBranch(self, name):
+    """Merge a local topic branch.
+
+        Args:
+          name: The name of the branch to checkout.
+
+        Returns:
+          True if the merge succeeded; False if it didn't; None if the branch
+          didn't exist.
+    """
+    rev = R_HEADS + name
+    head = self.work_git.GetHead()
+    if head == rev:
+      # Already on the branch
+      #print('debug: work_git.GetHead "%s"' % head, file=sys.stdout)
+      return None
+
+    try:
+      self._Merge(name, noff=True)
+    except GitError:
+      #print('error: can not merge "%s"' % name, file=sys.stderr)
+      return False
+    else:
+      return True
+
   def AbandonBranch(self, name, force=True):
     """Destroy a local topic branch.
 
@@ -2413,6 +2438,13 @@ class Project(object):
     cmd = ['merge', head]
     if ffonly:
       cmd.append("--ff-only")
+    if GitCommand(self, cmd).Wait() != 0:
+      raise GitError('%s merge %s ' % (self.name, head))
+
+  def _Merge(self, head, noff=False):
+    cmd = ['merge', head]
+    if noff:
+      cmd.append("--no-ff")
     if GitCommand(self, cmd).Wait() != 0:
       raise GitError('%s merge %s ' % (self.name, head))
 

@@ -20,6 +20,8 @@ from color import Coloring
 from command import PagedCommand
 from manifest_xml import XmlManifest
 
+from git_refs import HEAD, R_HEADS, R_TAGS
+
 class _Coloring(Coloring):
   def __init__(self, config):
     Coloring.__init__(self, config, "status")
@@ -74,6 +76,12 @@ synced and their revisions won't be found.
     p.add_option('-r', '--reverse',
                  dest='reverse', action='store_true', default=False,
                  help='Reverse manifests diff order.')
+    p.add_option('-m', '--merge',
+                 type='string',  action='store', dest='merge',
+                 help='Select manifests.git branch to merge.')
+    p.add_option('-o', '--option',
+                 type='string',  action='store', dest='option',
+                 help='Specify git merge option to append.')
     p.add_option('--raw',
                  dest='raw', action='store_true',
                  help='Display raw diff.')
@@ -184,6 +192,40 @@ synced and their revisions won't be found.
             self.printText(log)
             self.out.nl()
 
+  def _mergeRawDiff(self, diff, remote=False):
+    for project in diff['added']:
+      self.printText("A %s %s" % (project.relpath, project.revisionExpr))
+      self.out.nl()
+
+    for project in diff['removed']:
+      self.printText("R %s %s" % (project.relpath, project.revisionExpr))
+      self.out.nl()
+
+    for project, otherProject in diff['changed']:
+      self.printText("C %s %s %s" % (project.relpath, project.revisionExpr,
+                                     otherProject.revisionExpr))
+      self.out.nl()
+      #self._printLogs(project, otherProject, raw=True, color=False)
+      #print(project.__dict__)
+      #print(project.remote.__dict__)
+      merge_fail_cnt = 0
+      merge_branch = otherProject.revisionExpr
+      #print('debug: merge_branch "%s"' % merge_branch, file=sys.stdout)
+      if remote == True:
+        ## NOTE: branch must startswith refs/heads, otherwise can NOT add remote prefix
+        if merge_branch.startswith(R_HEADS):
+          merge_branch = merge_branch[len(R_HEADS):]
+          merge_branch = otherProject.remote.name + "/" + merge_branch
+      res = otherProject.MergeBranch(merge_branch)
+      ## TODO: stat merge cnt: success fail up-to-date
+      if res == False:
+        merge_fail_cnt += 1
+
+    for project, otherProject in diff['unreachable']:
+      self.printText("U %s %s %s" % (project.relpath, project.revisionExpr,
+                                     otherProject.revisionExpr))
+      self.out.nl()
+
   def Execute(self, opt, args):
     if not args or len(args) > 2:
       self.Usage()
@@ -226,6 +268,18 @@ synced and their revisions won't be found.
     else:
       manifest2 = XmlManifest(self.manifest.repodir)
       manifest2.Override(args[1])
+
+    if opt.merge:
+      if opt.reverse == True:
+        diff = manifest2.projectsDiff(manifest1)
+      else:
+        diff = manifest1.projectsDiff(manifest2)
+      if opt.merge == 'remote':
+        self._mergeRawDiff(diff, remote=True)
+      else:
+        self._mergeRawDiff(diff)
+      #print('debug: projectsMerge done "%s"' % args[0], file=sys.stderr)
+      return 0
 
     if opt.reverse == True:
       diff = manifest2.projectsDiff(manifest1)
