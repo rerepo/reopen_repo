@@ -293,10 +293,12 @@ class XmlManifest(object):
         if peg_rev_upstream:
           if p.upstream:
             e.setAttribute('upstream', p.upstream)
+            print('p.upstream :', p.upstream)
           elif value != p.revisionExpr:
             # Only save the origin if the origin is not a sha1, and the default
             # isn't our value
             e.setAttribute('upstream', p.revisionExpr)
+            print('!= upstream :', p.revisionExpr)
       else:
         revision = self.remotes[p.remote.orig_name].revision or d.revisionExpr
         if not revision or revision != p.revisionExpr:
@@ -1009,6 +1011,50 @@ class XmlManifest(object):
 
     return diff
 
+  ## NOUSE
+  def projectsMerge(self, manifest):
+    """merge the projects differences between two manifests.
+
+    The diff will be from self to given manifest.
+
+    """
+    fromProjects = self.paths
+    toProjects = manifest.paths
+    print('debug: fromProjects "%s"' % fromProjects, file=sys.stderr)
+
+
+    fromKeys = sorted(fromProjects.keys())
+    toKeys = sorted(toProjects.keys())
+
+    diff = {'added': [], 'removed': [], 'changed': [], 'unreachable': []}
+    #exit(0)
+
+    for proj in fromKeys:
+      if not proj in toKeys:
+        diff['removed'].append(fromProjects[proj])
+
+      else:
+        fromProj = fromProjects[proj]
+        toProj = toProjects[proj]
+        try:
+          fromRevId = fromProj.GetCommitRevisionId()
+          toRevId = toProj.GetCommitRevisionId()
+        except ManifestInvalidRevisionError:
+          diff['unreachable'].append((fromProj, toProj))
+        else:
+          if fromRevId != toRevId:
+            diff['changed'].append((fromProj, toProj))
+        print('debug: proj "%s"\n' % proj, file=sys.stderr)
+        print('debug: fromProjects[proj] "%s"\n' % fromProjects[proj], file=sys.stderr)
+
+        toKeys.remove(proj)
+
+    for proj in toKeys:
+      diff['added'].append(toProjects[proj])
+      print('debug: proj "%s"\n' % proj, file=sys.stderr)
+      print('debug: fromProjects[proj] "%s"\n' % fromProjects[proj], file=sys.stderr)
+
+    return diff
 
 class GitcManifest(XmlManifest):
 

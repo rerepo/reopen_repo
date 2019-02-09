@@ -854,6 +854,7 @@ class Project(object):
       if name.startswith(R_PUB):
         name = name[len(R_PUB):]
         b = heads.get(name)
+        #print("GetBranches",b)
         if b:
           b.published = ref_id
 
@@ -1157,6 +1158,7 @@ class Project(object):
       branch.remote.Save()
 
     url = branch.remote.ReviewUrl(self.UserEmail, validate_certs)
+    print("url:", url)
     if url is None:
       raise UploadError('review not configured')
     cmd = ['push']
