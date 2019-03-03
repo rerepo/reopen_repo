@@ -54,6 +54,8 @@ from git_command import ssh_sock
 from git_command import terminate_ssh_clients
 from git_refs import R_CHANGES, R_HEADS, R_TAGS
 
+import web_pdb
+
 ID_RE = re.compile(r'^[0-9a-f]{40}$')
 
 REVIEW_CACHE = dict()
@@ -618,12 +620,16 @@ class Remote(object):
     connectionUrl = self._InsteadOf()
     return _preconnect(connectionUrl)
 
-  def ReviewUrl(self, userEmail, validate_certs):
+  def ReviewUrl(self, userEmail, validate_certs, prefix):
+    # import pdb; pdb.set_trace()
+    # web_pdb.set_trace()
+
     if self._review_url is None:
       if self.review is None:
         return None
 
       u = self.review
+      print('self.review :', u)
       if u.startswith('persistent-'):
         u = u[len('persistent-'):]
       if u.split(':')[0] not in ('http', 'https', 'sso', 'ssh'):
@@ -635,7 +641,10 @@ class Remote(object):
       if not u.endswith('/'):
         u += '/'
       http_url = u
+      print('http_url :', http_url)
 
+      print('REVIEW_CACHE :', REVIEW_CACHE)
+      #print('os.environ :', os.environ)
       if u in REVIEW_CACHE:
         self._review_url = REVIEW_CACHE[u]
       elif 'REPO_HOST_PORT_INFO' in os.environ:
@@ -673,13 +682,24 @@ class Remote(object):
           raise UploadError('%s: %s' % (self.review, e.__class__.__name__))
 
         REVIEW_CACHE[u] = self._review_url
-    return self._review_url + self.projectname
+    else:
+      print('_review_url already exist:', self._review_url)
+    ## NOTE: projectname save in .git/config every git repo
+    if prefix is None:
+      project_url = self.projectname
+    else:
+      project_url = prefix + '/' + self.projectname
+    return self._review_url + project_url
 
   def _SshReviewUrl(self, userEmail, host, port):
+    print('self.review :', self.review)
     username = self._config.GetString('review.%s.username' % self.review)
+    print('username:', username)
     if username is None:
       username = userEmail.split('@')[0]
-    return 'ssh://%s@%s:%s/' % (username, host, port)
+    sshurl = 'ssh://%s@%s:%s/' % (username, host, port)
+    print('sshurl :', sshurl)
+    return sshurl
 
   def ToLocal(self, rev):
     """Convert a remote revision string to something we have locally.

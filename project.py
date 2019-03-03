@@ -181,7 +181,8 @@ class ReviewableBranch(object):
                       dest_branch=None,
                       validate_certs=True,
                       push_options=None,
-                      push_mode=False):
+                      push_mode=False,
+                      prefix=None):
     if push_mode == True:
       self.project.UploadForPreview(self.name,
                                  people,
@@ -203,13 +204,15 @@ class ReviewableBranch(object):
                                  wip=wip,
                                  dest_branch=dest_branch,
                                  validate_certs=validate_certs,
-                                 push_options=push_options)
+                                 push_options=push_options,
+                                 prefix=prefix)
 
   def GetPublishedRefs(self):
     refs = {}
     output = self.project.bare_git.ls_remote(
         self.branch.remote.SshReviewUrl(self.project.UserEmail),
         'refs/changes/*')
+    print('output :', output)
     for line in output.split('\n'):
       try:
         (sha, ref) = line.split()
@@ -1210,7 +1213,8 @@ class Project(object):
                       wip=False,
                       dest_branch=None,
                       validate_certs=True,
-                      push_options=None):
+                      push_options=None,
+                      prefix=None):
     """Uploads the named branch for code review.
     """
     if branch is None:
@@ -1235,7 +1239,7 @@ class Project(object):
       branch.remote.projectname = self.name
       branch.remote.Save()
 
-    url = branch.remote.ReviewUrl(self.UserEmail, validate_certs)
+    url = branch.remote.ReviewUrl(self.UserEmail, validate_certs, prefix)
     if url is None:
       raise UploadError('review not configured')
     cmd = ['push']
