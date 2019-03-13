@@ -1769,7 +1769,7 @@ class Project(object):
                       capture_stdout=True,
                       capture_stderr=True).Wait() == 0
 
-  def MergeBranch(self, name):
+  def MergeBranch(self, name, option=None):
     """Merge a local topic branch.
 
         Args:
@@ -1787,7 +1787,7 @@ class Project(object):
       return None
 
     try:
-      self._Merge(name, noff=True)
+      self._Merge(name, nostat=True, option=option)
     except GitError:
       #print('error: can not merge "%s"' % name, file=sys.stderr)
       return False
@@ -2447,10 +2447,15 @@ class Project(object):
     if GitCommand(self, cmd).Wait() != 0:
       raise GitError('%s merge %s ' % (self.name, head))
 
-  def _Merge(self, head, noff=False):
+  def _Merge(self, head, noff=False, nostat=False, option=None):
     cmd = ['merge', head]
     if noff:
       cmd.append("--no-ff")
+    if nostat:
+      cmd.append("--no-stat")
+    if option:
+      cmd.append(option)
+    #if GitCommand(self, cmd, capture_stdout=True, capture_stderr=True).Wait() != 0:
     if GitCommand(self, cmd).Wait() != 0:
       raise GitError('%s merge %s ' % (self.name, head))
 

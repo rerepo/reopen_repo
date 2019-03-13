@@ -79,6 +79,9 @@ synced and their revisions won't be found.
     p.add_option('-m', '--merge',
                  type='string',  action='store', dest='merge',
                  help='Select manifests.git branch to merge.')
+    p.add_option('--msg', '--message',
+                 type='string',  action='store', dest='message',
+                 help='Specify git merge message.')
     p.add_option('-o', '--option',
                  type='string',  action='store', dest='option',
                  help='Specify git merge option to append.')
@@ -192,7 +195,7 @@ synced and their revisions won't be found.
             self.printText(log)
             self.out.nl()
 
-  def _mergeRawDiff(self, diff, remote=False):
+  def _mergeRawDiff(self, diff, remote=False, option=None):
     for project in diff['added']:
       self.printText("A %s %s" % (project.relpath, project.revisionExpr))
       self.out.nl()
@@ -201,6 +204,7 @@ synced and their revisions won't be found.
       self.printText("R %s %s" % (project.relpath, project.revisionExpr))
       self.out.nl()
 
+    merge_fail_cnt = 0
     for project, otherProject in diff['changed']:
       self.printText("C %s %s %s" % (project.relpath, project.revisionExpr,
                                      otherProject.revisionExpr))
@@ -208,18 +212,21 @@ synced and their revisions won't be found.
       #self._printLogs(project, otherProject, raw=True, color=False)
       #print(project.__dict__)
       #print(project.remote.__dict__)
-      merge_fail_cnt = 0
       merge_branch = otherProject.revisionExpr
-      #print('debug: merge_branch "%s"' % merge_branch, file=sys.stdout)
+      #print('debug: merge_branch "%s"' % merge_branch)
       if remote == True:
         ## NOTE: branch must startswith refs/heads, otherwise can NOT add remote prefix
-        if merge_branch.startswith(R_HEADS):
-          merge_branch = merge_branch[len(R_HEADS):]
-          merge_branch = otherProject.remote.name + "/" + merge_branch
-      res = otherProject.MergeBranch(merge_branch)
+        #if merge_branch.startswith(R_HEADS):
+        #merge_branch = merge_branch[len(R_HEADS):]
+        merge_branch = otherProject.remote.name + "/" + merge_branch
+      res = otherProject.MergeBranch(merge_branch, option)
       ## TODO: stat merge cnt: success fail up-to-date
       if res == False:
         merge_fail_cnt += 1
+        print('error: merge conflict "%s"' % project.relpath, file=sys.stderr)
+#      else:
+#	return 1
+    print('summary: merge conflict count "%d"' % merge_fail_cnt, file=sys.stderr)
 
     for project, otherProject in diff['unreachable']:
       self.printText("U %s %s %s" % (project.relpath, project.revisionExpr,
@@ -270,12 +277,13 @@ synced and their revisions won't be found.
       manifest2.Override(args[1])
 
     if opt.merge:
+      print('debug: projectsMerge done "%s"' % args[0], file=sys.stderr)
       if opt.reverse == True:
         diff = manifest2.projectsDiff(manifest1)
       else:
         diff = manifest1.projectsDiff(manifest2)
       if opt.merge == 'remote':
-        self._mergeRawDiff(diff, remote=True)
+        self._mergeRawDiff(diff, remote=True, option=opt.option)
       else:
         self._mergeRawDiff(diff)
       #print('debug: projectsMerge done "%s"' % args[0], file=sys.stderr)
