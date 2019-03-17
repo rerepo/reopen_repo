@@ -618,7 +618,7 @@ class Remote(object):
     connectionUrl = self._InsteadOf()
     return _preconnect(connectionUrl)
 
-  def ReviewUrl(self, userEmail, validate_certs):
+  def ReviewUrl(self, userEmail, validate_certs, prefix=None):
     if self._review_url is None:
       if self.review is None:
         return None
@@ -673,7 +673,14 @@ class Remote(object):
           raise UploadError('%s: %s' % (self.review, e.__class__.__name__))
 
         REVIEW_CACHE[u] = self._review_url
-    return self._review_url + self.projectname
+    # else:
+      # print('_review_url REVIEW_CACHE already exist:', self._review_url)
+    ## NOTE: projectname save in .git/config every git repo
+    if prefix is None:
+      project_url = self.projectname
+    else:
+      project_url = prefix + '/' + self.projectname
+    return self._review_url + project_url
 
   def _SshReviewUrl(self, userEmail, host, port):
     username = self._config.GetString('review.%s.username' % self.review)

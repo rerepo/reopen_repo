@@ -170,6 +170,9 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
                  type='string', action='store', dest='dest_branch',
                  metavar='BRANCH',
                  help='Submit for review on this target branch.')
+    p.add_option('--prefix',
+                 type='string',  action='store', dest='prefix',
+                 help='Add prefix before projectname to upload.')
 
     # Options relating to upload hook.  Note that verify and no-verify are NOT
     # opposites of each other, which is why they store to different locations.
@@ -402,7 +405,8 @@ Gerrit Code Review:  https://www.gerritcodereview.com/
                                dest_branch=destination,
                                validate_certs=opt.validate_certs,
                                push_options=opt.push_options,
-                               push_mode=opt.push_mode)
+                               push_mode=opt.push_mode,
+                               prefix=opt.prefix)
 
         branch.uploaded = True
       except UploadError as e:
