@@ -8,6 +8,10 @@ if not REPO_URL:
   REPO_URL = 'https://gerrit.googlesource.com/git-repo'
 REPO_REV = 'stable'
 
+REPO_PATH = os.environ.get('REPO_PATH', None)
+if not REPO_PATH:
+  REPO_PATH = os.path.join(os.path.expanduser('~'), 'repo.git')
+
 # Copyright (C) 2008 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -365,14 +369,17 @@ def _Init(args, gitc_init=False):
       can_verify = True
 
     dst = os.path.abspath(os.path.join(repodir, S_repo))
-    _Clone(url, dst, opt.quiet, not opt.no_clone_bundle)
+    if not os.path.exists(REPO_PATH):
+      _Clone(url, REPO_PATH, opt.quiet, not opt.no_clone_bundle)
+    os.symlink(REPO_PATH, dst)
 
     if can_verify and not opt.no_repo_verify:
       rev = _Verify(dst, branch, opt.quiet)
     else:
       rev = 'refs/remotes/origin/%s^0' % branch
 
-    _Checkout(dst, branch, rev, opt.quiet)
+    if not os.path.exists(REPO_PATH):
+      _Checkout(dst, branch, rev, opt.quiet)
 
     if not os.path.isfile(os.path.join(dst, 'repo')):
       _print("warning: '%s' does not look like a git-repo repository, is "
@@ -723,6 +730,7 @@ def _Checkout(cwd, branch, rev, quiet):
 def _FindRepo():
   """Look for a repo installation, starting at the current directory.
   """
+  ##NOTE: REPO_PATH not support into .repo/repo dir
   curdir = os.getcwd()
   repo = None
 
