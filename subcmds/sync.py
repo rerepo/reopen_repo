@@ -221,6 +221,9 @@ later is required to fix a server side protocol bug.
     p.add_option('--no-clone-bundle',
                  dest='no_clone_bundle', action='store_true',
                  help='disable use of /clone.bundle on HTTP/HTTPS')
+    p.add_option('--no-depth',
+                 dest='no_depth', action='store_true',
+                 help="don't fetch depth althrough manifest.xml specify depth")
     p.add_option('-u', '--manifest-server-username', action='store',
                  dest='manifest_server_username',
                  help='username to authenticate with the manifest server')
@@ -317,7 +320,8 @@ later is required to fix a server side protocol bug.
           clone_bundle=not opt.no_clone_bundle,
           no_tags=opt.no_tags, archive=self.manifest.IsArchive,
           optimized_fetch=opt.optimized_fetch,
-          prune=opt.prune)
+          prune=opt.prune,
+          no_depth=opt.no_depth)
         self._fetch_times.Set(project, time.time() - start)
 
         # Lock around all the rest of the code, since printing, updating a set

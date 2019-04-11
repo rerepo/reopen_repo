@@ -1312,7 +1312,8 @@ class Project(object):
                        archive=False,
                        optimized_fetch=False,
                        prune=False,
-                       submodules=False):
+                       submodules=False,
+                       no_depth=False):
     """Perform only the network IO portion of the sync process.
        Local working directory/branch state is not affected.
     """
@@ -1387,6 +1388,8 @@ class Project(object):
       depth = self.clone_depth
     else:
       depth = self.manifest.manifestProject.config.GetString('repo.depth')
+    if no_depth == True:
+      depth = None
 
     need_to_fetch = not (optimized_fetch and
                          (ID_RE.match(self.revisionExpr) and
