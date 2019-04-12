@@ -2172,7 +2172,8 @@ class Project(object):
       # do this with projects that don't have shallow objects, since it is less
       # efficient.
       if os.path.exists(os.path.join(self.gitdir, 'shallow')):
-        cmd.append('--depth=2147483647')
+        #cmd.append('--depth=2147483647')
+        cmd.append('--unshallow')
 
     if quiet:
       cmd.append('--quiet')

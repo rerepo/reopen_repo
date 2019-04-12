@@ -403,8 +403,8 @@ later is required to fix a server side protocol bug.
     pm.end()
     self._fetch_times.Save()
 
-    if not self.manifest.IsArchive:
-      self._GCProjects(projects)
+#    if not self.manifest.IsArchive:
+#      self._GCProjects(projects)
 
     return fetched
 
