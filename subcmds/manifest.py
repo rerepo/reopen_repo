@@ -16,7 +16,6 @@
 from __future__ import print_function
 import os
 import sys
-from shutil import copyfile
 
 from command import PagedCommand
 
@@ -60,19 +59,9 @@ in a Git repository for use during future 'repo init' invocations.
                  default='-',
                  help='File to save the manifest to',
                  metavar='-|NAME.xml')
-    p.add_option('-w', '--overwrite',
-                 dest='overwrite', action='store_true',
-                 help='Overwrite current linked manifest.xml')
 
   def _Output(self, opt, args):
-    if opt.overwrite == True:
-      if os.path.lexists(self.manifest.manifestFile):
-        tmp_xml = '%s.tmp' % self.manifest.manifestFile
-        fd = open(tmp_xml, 'w')
-      else:
-        print('error: no exist linked manifest.xml in %s' % self.manifest.manifestFile, file=sys.stderr)
-        return 1
-    elif opt.output_file == '-':
+    if opt.output_file == '-':
       fd = sys.stdout
     else:
       fd = open(opt.output_file, 'w')
@@ -82,10 +71,6 @@ in a Git repository for use during future 'repo init' invocations.
                        peg_rev_upstream = opt.peg_rev_upstream,
                        element_list = args)
     fd.close()
-    if opt.overwrite == True:
-      copyfile(tmp_xml, self.manifest.manifestFile)
-      os.remove(tmp_xml)
-      print('Overwrite linked manifest.xml in %s' % self.manifest.manifestFile, file=sys.stderr)
     if opt.output_file != '-':
       print('Saved manifest to %s' % opt.output_file, file=sys.stderr)
 
