@@ -60,26 +60,24 @@ in a Git repository for use during future 'repo init' invocations.
                  help='File to save the manifest to',
                  metavar='-|NAME.xml')
 
-  def _Output(self, opt, args):
+  def _Output(self, opt):
     if opt.output_file == '-':
       fd = sys.stdout
     else:
       fd = open(opt.output_file, 'w')
-
     self.manifest.Save(fd,
                        peg_rev = opt.peg_rev,
-                       peg_rev_upstream = opt.peg_rev_upstream,
-                       element_list = args)
+                       peg_rev_upstream = opt.peg_rev_upstream)
     fd.close()
     if opt.output_file != '-':
       print('Saved manifest to %s' % opt.output_file, file=sys.stderr)
 
   def Execute(self, opt, args):
-#     if args:
-#       self.Usage()
+    if args:
+      self.Usage()
 
     if opt.output_file is not None:
-      self._Output(opt, args)
+      self._Output(opt)
       return
 
     print('error: no operation to perform', file=sys.stderr)

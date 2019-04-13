@@ -190,7 +190,7 @@ class XmlManifest(object):
   def _ParseGroups(self, groups):
     return [x for x in re.split(r'[,\s]+', groups) if x]
 
-  def Save(self, fd, peg_rev=False, peg_rev_upstream=True, groups=None, element_list=None):
+  def Save(self, fd, peg_rev=False, peg_rev_upstream=True, groups=None):
     """Write the current manifest out to the given file descriptor.
     """
     mp = self.manifestProject
@@ -199,48 +199,6 @@ class XmlManifest(object):
       groups = mp.config.GetString('manifest.groups')
     if groups:
       groups = self._ParseGroups(groups)
-
-    # parse override_list
-    override_list = []
-    if element_list:
-      for element in element_list:
-        element_dict = {}
-        doc = xml.dom.minidom.parseString(element)
-        node = doc.documentElement
-        if node.nodeName == 'default':
-          element_dict['element'] = 'default'
-          attr = node.getAttribute('remote')
-          if attr:
-            element_dict['remote'] = attr
-          # default get revision at last
-          attr = node.getAttribute('revision')
-          if attr:
-            element_dict['revision'] = attr
-            override_list.append(element_dict)
-        elif node.nodeName == 'project':
-          element_dict['element'] = 'project'
-          attr = node.getAttribute('revision')
-          if attr:
-            element_dict['revision'] = attr
-          attr = node.getAttribute('upstream')
-          if attr:
-            element_dict['upstream'] = attr
-          # project get name at last
-          attr = node.getAttribute('name')
-          if attr:
-#             if ',' in attr:
-#               name_list = attr.split(',')
-#               print(name_list)
-#               for n in name_list:
-#                 tmp_dict = element_dict
-#                 tmp_dict['name'] = n
-#                 print(tmp_dict)
-#                 override_list.append(tmp_dict)
-#                 print(override_list)
-#             else:
-            element_dict['name'] = attr
-            override_list.append(element_dict)
-      print(override_list)
 
     doc = xml.dom.minidom.Document()
     root = doc.createElement('manifest')
@@ -262,13 +220,6 @@ class XmlManifest(object):
     if self.remotes:
       root.appendChild(doc.createTextNode(''))
 
-    # override for default element
-    oe = None
-    for o in override_list:
-      if o['element'] == 'default':
-        oe = o
-        break
-
     have_default = False
     e = doc.createElement('default')
     if d.remote:
@@ -277,9 +228,6 @@ class XmlManifest(object):
     if d.revisionExpr:
       have_default = True
       e.setAttribute('revision', d.revisionExpr)
-      # override
-      if oe and oe.has_key('revision'):
-        e.setAttribute('revision', oe['revision'])
     if d.destBranchExpr:
       have_default = True
       e.setAttribute('dest-branch', d.destBranchExpr)
@@ -308,12 +256,12 @@ class XmlManifest(object):
       root.appendChild(e)
       root.appendChild(doc.createTextNode(''))
 
-    def output_projects(parent, parent_node, projects, override=None):
+    def output_projects(parent, parent_node, projects):
       for project_name in projects:
         for project in self._projects[project_name]:
-          output_project(parent, parent_node, project, override)
+          output_project(parent, parent_node, project)
 
-    def output_project(parent, parent_node, p, override=None):
+    def output_project(parent, parent_node, p):
       if not p.MatchesGroups(groups):
         return
 
@@ -323,31 +271,9 @@ class XmlManifest(object):
         name = self._UnjoinName(parent.name, name)
         relpath = self._UnjoinRelpath(parent.relpath, relpath)
 
-      # override for project element
-      oe = None
-      if override:
-        for o in override:
-          if o['element'] == 'project':
-            if ',' in o['name']:
-              match = False
-              for on in o['name'].split(','):
-                if on == name:
-                  match = True
-                  break
-              if match == True:
-                print('match name:', name)
-                oe = o
-                break
-            else:
-              if o['name'] == name:
-                print('match name:', name)
-                oe = o
-                break
-
       e = doc.createElement('project')
       parent_node.appendChild(e)
       e.setAttribute('name', name)
-      # NOTE: ignore path, when relpath == name
       if relpath != name:
         e.setAttribute('path', relpath)
       remoteName = None
@@ -376,12 +302,6 @@ class XmlManifest(object):
         if (p.upstream and (p.upstream != p.revisionExpr or
                             p.upstream != d.upstreamExpr)):
           e.setAttribute('upstream', p.upstream)
-      # override
-      if oe and oe.has_key('upstream'):
-        e.setAttribute('upstream', oe['upstream'])
-      # override
-      if oe and oe.has_key('revision'):
-        e.setAttribute('revision', oe['revision'])
 
       if p.dest_branch and p.dest_branch != d.destBranchExpr:
         e.setAttribute('dest-branch', p.dest_branch)
@@ -429,7 +349,7 @@ class XmlManifest(object):
         output_projects(p, e, list(sorted(subprojects)))
 
     projects = set(p.name for p in self._paths.values() if not p.parent)
-    output_projects(None, root, list(sorted(projects)), override_list)
+    output_projects(None, root, list(sorted(projects)))
 
     if self._repo_hooks_project:
       root.appendChild(doc.createTextNode(''))
