@@ -258,8 +258,13 @@ class XmlManifest(object):
 
     def output_projects(parent, parent_node, projects):
       for project_name in projects:
+        ##NOTE: same project name can match different path
         for project in self._projects[project_name]:
           output_project(parent, parent_node, project)
+
+    def output_projects_path(parent, parent_node, projects):
+      for project_path in projects:
+        output_project(parent, parent_node, self._paths[project_path])
 
     def output_project(parent, parent_node, p):
       if not p.MatchesGroups(groups):
@@ -348,8 +353,14 @@ class XmlManifest(object):
         subprojects = set(subp.name for subp in p.subprojects)
         output_projects(p, e, list(sorted(subprojects)))
 
-    projects = set(p.name for p in self._paths.values() if not p.parent)
-    output_projects(None, root, list(sorted(projects)))
+    if self.SortOrder == 'path':
+      # projects = set(p.relpath for p in self._paths.values() if not p.parent)
+      # output_projects_path(None, root, list(sorted(projects)))
+      output_projects_path(None, root, sorted(self._paths.keys()))
+    else:
+      projects = set(p.name for p in self._paths.values() if not p.parent)
+      ##NOTE: remove sorted to keep origin xml sort
+      output_projects(None, root, list(sorted(projects)))
 
     if self._repo_hooks_project:
       root.appendChild(doc.createTextNode(''))
@@ -411,6 +422,11 @@ class XmlManifest(object):
   @property
   def HasSubmodules(self):
     return self.manifestProject.config.GetBoolean('repo.submodules')
+
+  ##NOTE: maybe read file every times, so need from cache
+  @property
+  def SortOrder(self):
+    return self.manifestProject.config.GetString('repo.sortorder')
 
   def _Unload(self):
     self._loaded = False
