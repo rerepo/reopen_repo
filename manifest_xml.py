@@ -605,6 +605,28 @@ class XmlManifest(object):
           raise ManifestParseError('duplicate default in %s' %
                                    (self.manifestFile))
 
+    for node in itertools.chain(*node_list):
+      if node.nodeName == 'extend-default':
+        new_default = self._ParseDefault(node)
+        if self._default is None:
+          self._default = new_default
+        elif new_default != self._default:
+          # print(new_default.__dict__)
+          if new_default.remote and self._default.remote != new_default.remote:
+            self._default.remote = new_default.remote
+          if new_default.revisionExpr and self._default.revisionExpr != new_default.revisionExpr:
+            self._default.revisionExpr = new_default.revisionExpr
+          if new_default.destBranchExpr and self._default.destBranchExpr != new_default.destBranchExpr:
+            self._default.destBranchExpr = new_default.destBranchExpr
+          if new_default.upstreamExpr and self._default.upstreamExpr != new_default.upstreamExpr:
+            self._default.upstreamExpr = new_default.upstreamExpr
+          # print(new_default.sync_j) ##NOTE: default == 1
+          sync_j = node.getAttribute('sync-j')
+          if sync_j and self._default.sync_j != new_default.sync_j:
+            self._default.sync_j = new_default.sync_j
+          # raise ManifestParseError('duplicate extend-default in %s' %
+                                  #  (self.manifestFile))
+
     if self._default is None:
       self._default = _Default()
 
