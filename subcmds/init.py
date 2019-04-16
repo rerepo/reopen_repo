@@ -147,7 +147,7 @@ to update the working directory files.
                  dest='repo_branch',
                  help='repo branch or revision', metavar='REVISION')
     g.add_option('--no-repo-verify',
-                 dest='no_repo_verify', action='store_true',
+                 dest='no_repo_verify', action='store_false', default=True,
                  help='do not verify repo source code')
 
     # Other
