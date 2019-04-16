@@ -368,9 +368,11 @@ def _Init(args, gitc_init=False):
     else:
       can_verify = True
 
+    init_clone = False
     dst = os.path.abspath(os.path.join(repodir, S_repo))
     if not os.path.exists(REPO_PATH):
       _Clone(url, REPO_PATH, opt.quiet, not opt.no_clone_bundle)
+      init_clone = True
     os.symlink(REPO_PATH, dst)
 
     if can_verify and not opt.no_repo_verify:
@@ -378,7 +380,7 @@ def _Init(args, gitc_init=False):
     else:
       rev = 'refs/remotes/origin/%s^0' % branch
 
-    if not os.path.exists(REPO_PATH):
+    if init_clone == True or not os.path.exists(REPO_PATH):
       _Checkout(dst, branch, rev, opt.quiet)
 
     if not os.path.isfile(os.path.join(dst, 'repo')):
