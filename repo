@@ -5,8 +5,8 @@
 import os
 REPO_URL = os.environ.get('REPO_URL', None)
 if not REPO_URL:
-  REPO_URL = 'https://gerrit.googlesource.com/git-repo'
-REPO_REV = 'stable'
+  REPO_URL = 'ssh://172.16.16.121/repo'
+REPO_REV = 'lct-stable'
 
 # Copyright (C) 2008 Google Inc.
 #
