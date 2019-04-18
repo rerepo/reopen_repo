@@ -589,6 +589,7 @@ class Remote(object):
     self.pushUrl = self._Get('pushurl')
     self.review = self._Get('review')
     self.projectname = self._Get('projectname')
+    self.projectprefix = self._Get('projectprefix')
     self.fetch = list(map(RefSpec.FromString,
                       self._Get('fetch', all_keys=True)))
     self._review_url = None
@@ -676,10 +677,12 @@ class Remote(object):
     # else:
       # print('_review_url REVIEW_CACHE already exist:', self._review_url)
     ## NOTE: projectname save in .git/config every git repo
-    if prefix is None:
-      project_url = self.projectname
-    else:
+    if prefix is not None:
       project_url = prefix + '/' + self.projectname
+    elif self.projectprefix is not None:
+      project_url = self.projectprefix + '/' + self.projectname
+    else:
+      project_url = self.projectname
     return self._review_url + project_url
 
   def _SshReviewUrl(self, userEmail, host, port):
